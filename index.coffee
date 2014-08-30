@@ -9,14 +9,16 @@ io = require('socket.io')(http)
 
 redis   = require 'redis'
 
-if process.env.REDISTOGO_URL
-  process.globals = {}
-  rtg = require('url').parse process.env.REDISTOGO_URL
-  process.globals.redis = redis.createClient rtg.port, rtg.hostname
+redis_url = process.env.REDIS_URL or process.env.REDISTOGO_URL or process.env.REDISCLOUD_URL
+unless redis_url
+  console.log '$REDIS_URL, $REDISTOGO_URL, $REDISCLOUD_URL not specified; falling back to redis://localhost:6379'
+  redis_url = 'redis://localhost:6379'
+
+process.globals = {}
+rtg = require('url').parse redis_url
+process.globals.redis = redis.createClient rtg.port, rtg.hostname
+if rtg.auth
   process.globals.redis.auth rtg.auth.split(':')[1]
-else
-  console.log 'Redis to go not found'
-  process.exit 1
 
 process.globals.io = io
 
@@ -39,4 +41,9 @@ app.get '/usage', (req, res)-> res.render 'usage'
 
 io.on 'connection', require './lib/socket'
 
-http.listen process.env.PORT || 3000
+port = if process.env.PORT
+         parseInt(process.env.PORT, 10)
+       else
+         3000
+console.log("Listening at port #{port}")
+http.listen port
